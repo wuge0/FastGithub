@@ -142,6 +142,11 @@ namespace FastGithub.DomainResolve
             finally
             {
                 semaphore.Release();
+                // 无等待者时从字典移除，避免信号量字典无限增长
+                if (semaphore.CurrentCount == 1)
+                {
+                    this.semaphoreSlims.TryRemove(key, out _);
+                }
             }
         }
 
@@ -174,30 +179,19 @@ namespace FastGithub.DomainResolve
             }
             catch (Exception ex)
             {
-                this.logger.LogWarning($"{endPoint.Host}@{dns}->{ex.Message}");
-                var expiration = IsSocketException(ex) ? this.maxTimeToLive : this.minTimeToLive;
-                return this.dnsLookupCache.Set(key, Array.Empty<IPAddress>(), expiration);
+                this.logger.LogWarning("{Host}@{Dns}->{Message}", endPoint.Host, dns, ex.Message);
+                // 解析失败仅短时间缓存，避免DNS抖动后长时间无法自愈
+                return this.dnsLookupCache.Set(key, Array.Empty<IPAddress>(), this.minTimeToLive);
             }
             finally
             {
                 semaphore.Release();
+                // 无等待者时从字典移除，避免信号量字典无限增长
+                if (semaphore.CurrentCount == 1)
+                {
+                    this.semaphoreSlims.TryRemove(key, out _);
+                }
             }
-        }
-
-        /// <summary>
-        /// 是否为Socket异常
-        /// </summary>
-        /// <param name="ex"></param>
-        /// <returns></returns>
-        private static bool IsSocketException(Exception ex)
-        {
-            if (ex is SocketException)
-            {
-                return true;
-            }
-
-            var inner = ex.InnerException;
-            return inner != null && IsSocketException(inner);
         }
 
 

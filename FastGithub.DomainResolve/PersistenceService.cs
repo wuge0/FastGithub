@@ -83,7 +83,7 @@ namespace FastGithub.DomainResolve
             }
             catch (Exception ex)
             {
-                this.logger.LogWarning(ex.Message, "读取dns记录异常");
+                this.logger.LogWarning(ex, "读取dns记录异常");
                 return Array.Empty<DnsEndPoint>();
             }
             finally
@@ -110,7 +110,7 @@ namespace FastGithub.DomainResolve
             }
             catch (Exception ex)
             {
-                this.logger.LogWarning(ex.Message, "保存dns记录异常");
+                this.logger.LogWarning(ex, "保存dns记录异常");
             }
             finally
             {

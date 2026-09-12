@@ -62,7 +62,7 @@ namespace FastGithub.HttpServer.TcpMiddlewares
                     using var timeoutTokenSource = new CancellationTokenSource(connectTimeout);
                     using var linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutTokenSource.Token);
                     await socket.ConnectAsync(address, endPoint.Port, linkedTokenSource.Token);
-                    return new NetworkStream(socket, ownsSocket: false);
+                    return new NetworkStream(socket, ownsSocket: true);
                 }
                 catch (Exception ex)
                 {

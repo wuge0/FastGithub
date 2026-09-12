@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -48,10 +47,18 @@ namespace FastGithub.Http
         /// </summary>
         private async void StartCleanup()
         {
-            await Task.Yield();
-            while (this.Cleanup() == false)
+            try
             {
-                await Task.Delay(this.CleanupInterval);
+                await Task.Yield();
+                while (this.Cleanup() == false)
+                {
+                    await Task.Delay(this.CleanupInterval);
+                }
+            }
+            catch (Exception)
+            {
+                // 清理失败时重新计数，等待下次Add触发新的清理作业
+                Interlocked.Decrement(ref this.trackingEntryCount);
             }
         }
 
@@ -65,8 +72,10 @@ namespace FastGithub.Http
             var cleanCount = this.trackingEntries.Count;
             for (var i = 0; i < cleanCount; i++)
             {
-                this.trackingEntries.TryDequeue(out var entry);
-                Debug.Assert(entry != null);
+                if (this.trackingEntries.TryDequeue(out var entry) == false)
+                {
+                    continue;
+                }
 
                 if (entry.CanDispose == false)
                 {
