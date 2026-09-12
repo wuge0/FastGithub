@@ -20,8 +20,10 @@ namespace FastGithub
             services.TryAddSingleton<DnscryptProxy>();
             services.TryAddSingleton<PersistenceService>();
             services.TryAddSingleton<IPAddressService>();
+            services.TryAddSingleton<GitHub520HostsService>();
             services.TryAddSingleton<IDomainResolver, DomainResolver>();
             services.AddHostedService<DomainResolveHostedService>();
+            services.AddHostedService<GitHub520HostsService>();
             return services;
         }
     }

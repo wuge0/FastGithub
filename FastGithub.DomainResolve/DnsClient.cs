@@ -28,6 +28,7 @@ namespace FastGithub.DomainResolve
 
         private readonly DnscryptProxy dnscryptProxy;
         private readonly FastGithubConfig fastGithubConfig;
+        private readonly GitHub520HostsService github520Hosts;
         private readonly ILogger<DnsClient> logger;
 
         private readonly ConcurrentDictionary<string, SemaphoreSlim> semaphoreSlims = new();
@@ -52,10 +53,12 @@ namespace FastGithub.DomainResolve
         public DnsClient(
             DnscryptProxy dnscryptProxy,
             FastGithubConfig fastGithubConfig,
+            GitHub520HostsService github520Hosts,
             ILogger<DnsClient> logger)
         {
             this.dnscryptProxy = dnscryptProxy;
             this.fastGithubConfig = fastGithubConfig;
+            this.github520Hosts = github520Hosts;
             this.logger = logger;
         }
 
@@ -217,6 +220,17 @@ namespace FastGithub.DomainResolve
                     loopbacks.Add(IPAddress.IPv6Loopback);
                 }
                 return new LookupResult(loopbacks, TimeSpan.MaxValue);
+            }
+
+            // 优先使用GitHub520 hosts源的解析记录（社区验证的可用IP），无记录时回退到DNS查询
+            if (this.github520Hosts.TryGetAddresses(endPoint.Host, out var hostedAddresses))
+            {
+                var addresses = (IList<IPAddress>)hostedAddresses;
+                if (fastSort == true && addresses.Count > 1)
+                {
+                    addresses = await OrderByConnectAnyAsync(addresses, endPoint.Port, cancellationToken);
+                }
+                return new LookupResult(addresses, this.maxTimeToLive);
             }
 
             var resolver = dns.Port == DNS_PORT
