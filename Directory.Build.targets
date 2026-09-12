@@ -1,0 +1,7 @@
+<Project>
+	<!-- CI环境编译.NET Framework项目（FastGithub.UI为net45）所需的引用程序集
+	     必须放在 targets（晚于项目文件）中，此时 TargetFrameworkIdentifier 已推导完成 -->
+	<ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
+		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+	</ItemGroup>
+</Project>

@@ -13,9 +13,4 @@
 		<DebugType>none</DebugType>
 		<DebugSymbols>false</DebugSymbols>
 	</PropertyGroup>
-
-	<!-- CI环境编译.NET Framework项目（FastGithub.UI为net45）所需的引用程序集 -->
-	<ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
-		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
-	</ItemGroup>
 </Project>
