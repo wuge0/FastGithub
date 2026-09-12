@@ -225,12 +225,12 @@ namespace FastGithub.DomainResolve
             // 优先使用GitHub520 hosts源的解析记录（社区验证的可用IP），无记录时回退到DNS查询
             if (this.github520Hosts.TryGetAddresses(endPoint.Host, out var hostedAddresses))
             {
-                var addresses = (IList<IPAddress>)hostedAddresses;
-                if (fastSort == true && addresses.Count > 1)
+                var hostedAddressList = (IList<IPAddress>)hostedAddresses;
+                if (fastSort == true && hostedAddressList.Count > 1)
                 {
-                    addresses = await OrderByConnectAnyAsync(addresses, endPoint.Port, cancellationToken);
+                    hostedAddressList = await OrderByConnectAnyAsync(hostedAddressList, endPoint.Port, cancellationToken);
                 }
-                return new LookupResult(addresses, this.maxTimeToLive);
+                return new LookupResult(hostedAddressList, this.maxTimeToLive);
             }
 
             var resolver = dns.Port == DNS_PORT
