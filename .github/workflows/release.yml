@@ -32,12 +32,6 @@ jobs:
       - name: Publish fastgithub (linux-arm64)
         run: dotnet publish -c Release /p:PublishSingleFile=true /p:PublishTrimmed=true --self-contained -r linux-arm64 -o publish/fastgithub_linux-arm64 ./FastGithub/FastGithub.csproj
 
-      - name: Publish fastgithub (osx-x64)
-        run: dotnet publish -c Release /p:PublishSingleFile=true /p:PublishTrimmed=true --self-contained -r osx-x64 -o publish/fastgithub_osx-x64 ./FastGithub/FastGithub.csproj
-
-      - name: Publish fastgithub (osx-arm64)
-        run: dotnet publish -c Release /p:PublishSingleFile=true /p:PublishTrimmed=true --self-contained -r osx-arm64 -o publish/fastgithub_osx-arm64 ./FastGithub/FastGithub.csproj
-
       # 目标框架 net48（csproj 已改）：runner 自带 4.8 targeting pack，
       # 向后兼容 net45，Win10/11 自带 4.8 运行时，产物可直接运行
       - name: Build FastGithub.UI (net48 WPF)
@@ -67,8 +61,6 @@ jobs:
           Compress-Archive -Path publish\fastgithub_win-x64\* -DestinationPath publish\fastgithub_win-x64.zip
           tar -czf publish/fastgithub_linux-x64.tar.gz -C publish/fastgithub_linux-x64 .
           tar -czf publish/fastgithub_linux-arm64.tar.gz -C publish/fastgithub_linux-arm64 .
-          tar -czf publish/fastgithub_osx-x64.tar.gz -C publish/fastgithub_osx-x64 .
-          tar -czf publish/fastgithub_osx-arm64.tar.gz -C publish/fastgithub_osx-arm64 .
 
       - name: Upload build artifacts (manual run)
         if: github.event_name == 'workflow_dispatch'
@@ -88,5 +80,3 @@ jobs:
             publish/fastgithub_win-x64.zip
             publish/fastgithub_linux-x64.tar.gz
             publish/fastgithub_linux-arm64.tar.gz
-            publish/fastgithub_osx-x64.tar.gz
-            publish/fastgithub_osx-arm64.tar.gz
