@@ -1,185 +1,74 @@
-name: Create Release  
-  
-on:  
-  workflow_dispatch:  
-    inputs:  
-      version:  
-        description: '版本号 (例如: v1.0.0)'  
-        required: true  
-        type: string  
-      prerelease:  
-        description: '是否为预发布版本'  
-        required: false  
-        type: boolean  
-        default: false  
-  
-jobs:  
-  build-and-release:  
-    runs-on: ubuntu-latest  
-      
-    steps:  
-    - name: Checkout code  
-      uses: actions/checkout@v4  
-      with:  
-        fetch-depth: 0  
-  
-    - name: Setup .NET  
-      uses: actions/setup-dotnet@v4  
-      with:  
-        dotnet-version: '7.0.x'  
-  
-    - name: Validate version format  
-      run: |  
-        if [[ ! "${{ github.event.inputs.version }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then  
-          echo "错误: 版本号格式不正确。请使用格式: v1.0.0 或 v1.0.0-beta"  
-          exit 1  
-        fi  
-  
-    - name: Check if tag exists  
-      run: |  
-        if git rev-parse "${{ github.event.inputs.version }}" >/dev/null 2>&1; then  
-          echo "错误: 标签 ${{ github.event.inputs.version }} 已存在"  
-          exit 1  
-        fi  
-  
-    - name: Create and push tag  
-      run: |  
-        git config user.name "github-actions[bot]"  
-        git config user.email "github-actions[bot]@users.noreply.github.com"  
-        git tag -a "${{ github.event.inputs.version }}" -m "Release ${{ github.event.inputs.version }}"  
-        git push origin "${{ github.event.inputs.version }}"  
-      env:  
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
-  
-  build-artifacts:  
-    needs: build-and-release  
-    runs-on: ${{ matrix.os }}  
-    strategy:  
-      matrix:  
-        os: [ubuntu-latest, windows-latest, macos-latest]  
-        include:  
-          - os: ubuntu-latest  
-            runtime: linux-x64  
-            artifact-name: fastgithub-linux-x64  
-          - os: windows-latest  
-            runtime: win-x64  
-            artifact-name: fastgithub-win-x64  
-          - os: macos-latest  
-            runtime: osx-x64  
-            artifact-name: fastgithub-osx-x64  
-  
-    steps:  
-    - name: Checkout code  
-      uses: actions/checkout@v4  
-      with:  
-        ref: ${{ github.event.inputs.version }}  
-  
-    - name: Setup .NET  
-      uses: actions/setup-dotnet@v4  
-      with:  
-        dotnet-version: '7.0.x'  
-  
-    - name: Restore dependencies  
-      run: dotnet restore FastGithub.sln
-  
-    - name: Build and publish
-      shell: bash
-      run: |
-        # 发布主程序
-        dotnet publish FastGithub/FastGithub.csproj \
-          -c Release \
-          -r ${{ matrix.runtime }} \
-          --self-contained true \
-          -p:PublishSingleFile=true \
-          -p:PublishTrimmed=true \
-          -o ./publish/${{ matrix.runtime }}
-  
-        # 发布 UI (仅 Windows)
-        if [ "${{ matrix.runtime }}" == "win-x64" ]; then
-          dotnet publish FastGithub.UI/FastGithub.UI.csproj \
-            -c Release \
-            -o ./publish/${{ matrix.runtime }}
-        fi
+name: Build & Release
 
-    - name: Create archive  
-      shell: bash  
-      run: |  
-        cd ./publish/${{ matrix.runtime }}  
-        if [ "${{ matrix.os }}" == "windows-latest" ]; then  
-          7z a -tzip ../../${{ matrix.artifact-name }}.zip *  
-        else  
-          tar -czf ../../${{ matrix.artifact-name }}.tar.gz *  
-        fi  
-  
-    - name: Upload artifacts  
-      uses: actions/upload-artifact@v4  
-      with:  
-        name: ${{ matrix.artifact-name }}  
-        path: |  
-          ${{ matrix.artifact-name }}.zip  
-          ${{ matrix.artifact-name }}.tar.gz  
-  
-  create-github-release:  
-    needs: build-artifacts  
-    runs-on: ubuntu-latest  
-      
-    steps:  
-    - name: Checkout code  
-      uses: actions/checkout@v4  
-      with:  
-        ref: ${{ github.event.inputs.version }}  
-  
-    - name: Download all artifacts  
-      uses: actions/download-artifact@v4  
-      with:  
-        path: ./artifacts  
-  
-    - name: Prepare release assets  
-      run: |  
-        mkdir -p ./release-assets  
-        find ./artifacts -name "*.zip" -o -name "*.tar.gz" | while read file; do  
-          cp "$file" ./release-assets/  
-        done  
-        ls -la ./release-assets/  
-  
-    - name: Generate release notes  
-      id: release_notes  
-      run: |  
-        cat > release_notes.md << 'EOF'  
-        ## FastGithub Release ${{ github.event.inputs.version }}  
-          
-        🚀 **新版本发布**  
-          
-        ### 📦 下载说明  
-        - **Windows 用户**: 下载 `fastgithub-win-x64.zip`  
-        - **Linux 用户**: 下载 `fastgithub-linux-x64.tar.gz`  
-        - **macOS 用户**: 下载 `fastgithub-osx-x64.tar.gz`  
-          
-        ### 🔧 安装说明  
-        请参考 [README.md](https://github.com/${{ github.repository }}/blob/main/README.md) 中的部署方式。  
-          
-        ### ⚠️ 注意事项  
-        - Windows版本包含UI界面程序  
-        - 首次使用需要安装并信任CA证书  
-        - 详细配置请查看项目文档  
-          
-        ---  
-          
-        **完整更新日志**: https://github.com/${{ github.repository }}/compare/$(git describe --tags --abbrev=0 HEAD^)...${{ github.event.inputs.version }}  
-        EOF  
-  
-    - name: Create GitHub Release  
-      uses: softprops/action-gh-release@v1  
-      with:  
-        tag_name: ${{ github.event.inputs.version }}  
-        name: FastGithub ${{ github.event.inputs.version }}  
-        body_path: release_notes.md  
-        files: ./release-assets/*  
-        draft: false  
-        prerelease: ${{ github.event.inputs.prerelease }}  
-        generate_release_notes: true  
-      env:  
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  
-  
-    - name: Cleanup artifacts  
-      run: rm -rf ./artifacts ./release-assets release_notes.md
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 7
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Publish fastgithub (win-x64)
+        run: dotnet publish -c Release /p:PublishSingleFile=true /p:PublishTrimmed=true --self-contained -r win-x64 -o publish/fastgithub_win-x64 ./FastGithub/FastGithub.csproj
+
+      - name: Publish fastgithub (linux-x64)
+        run: dotnet publish -c Release /p:PublishSingleFile=true /p:PublishTrimmed=true --self-contained -r linux-x64 -o publish/fastgithub_linux-x64 ./FastGithub/FastGithub.csproj
+
+      - name: Publish fastgithub (linux-arm64)
+        run: dotnet publish -c Release /p:PublishSingleFile=true /p:PublishTrimmed=true --self-contained -r linux-arm64 -o publish/fastgithub_linux-arm64 ./FastGithub/FastGithub.csproj
+
+      - name: Publish fastgithub (osx-x64)
+        run: dotnet publish -c Release /p:PublishSingleFile=true /p:PublishTrimmed=true --self-contained -r osx-x64 -o publish/fastgithub_osx-x64 ./FastGithub/FastGithub.csproj
+
+      - name: Publish fastgithub (osx-arm64)
+        run: dotnet publish -c Release /p:PublishSingleFile=true /p:PublishTrimmed=true --self-contained -r osx-arm64 -o publish/fastgithub_osx-arm64 ./FastGithub/FastGithub.csproj
+
+      - name: Build FastGithub.UI (net45 WPF)
+        run: |
+          msbuild ./FastGithub.UI/FastGithub.UI.csproj /t:Restore,Build /p:Configuration=Release /m /nologo /v:m
+          Copy-Item FastGithub.UI\bin\Release\FastGithub.UI.exe publish\fastgithub_win-x64\
+          Copy-Item FastGithub.UI\bin\Release\FastGithub.UI.exe.config publish\fastgithub_win-x64\
+
+      - name: Pack
+        run: |
+          Compress-Archive -Path publish\fastgithub_win-x64\* -DestinationPath publish\fastgithub_win-x64.zip
+          tar -czf publish/fastgithub_linux-x64.tar.gz -C publish/fastgithub_linux-x64 .
+          tar -czf publish/fastgithub_linux-arm64.tar.gz -C publish/fastgithub_linux-arm64 .
+          tar -czf publish/fastgithub_osx-x64.tar.gz -C publish/fastgithub_osx-x64 .
+          tar -czf publish/fastgithub_osx-arm64.tar.gz -C publish/fastgithub_osx-arm64 .
+
+      - name: Upload build artifacts (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fastgithub-build
+          path: |
+            publish/*.zip
+            publish/*.tar.gz
+          retention-days: 7
+
+      - name: Attach to release (tag push)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            publish/fastgithub_win-x64.zip
+            publish/fastgithub_linux-x64.tar.gz
+            publish/fastgithub_linux-arm64.tar.gz
+            publish/fastgithub_osx-x64.tar.gz
+            publish/fastgithub_osx-arm64.tar.gz
