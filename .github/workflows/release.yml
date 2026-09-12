@@ -38,9 +38,12 @@ jobs:
       - name: Publish fastgithub (osx-arm64)
         run: dotnet publish -c Release /p:PublishSingleFile=true /p:PublishTrimmed=true --self-contained -r osx-arm64 -o publish/fastgithub_osx-arm64 ./FastGithub/FastGithub.csproj
 
-      - name: Build FastGithub.UI (net45 WPF)
+      # runner 的 VS 镜像已不再预装 net45 targeting pack（MSB3644），
+      # retarget 到 net48：runner 必带 4.8 targeting pack，且向后兼容 net45，
+      # Win10/11 自带 .NET Framework 4.8 运行时，产物可直接运行
+      - name: Build FastGithub.UI (retarget net48 WPF)
         run: |
-          msbuild ./FastGithub.UI/FastGithub.UI.csproj /t:Restore,Build /p:Configuration=Release /m /nologo /v:m *> ui-build.log
+          msbuild ./FastGithub.UI/FastGithub.UI.csproj /t:Restore,Build /p:Configuration=Release /p:TargetFramework=net48 /m /nologo /v:m *> ui-build.log
           if ($LASTEXITCODE -ne 0) {
             if (Test-Path ui-build.log) {
               Get-Content ui-build.log | Select-String -Pattern "error|FAILED" | Select-Object -First 12 | ForEach-Object { $l = $_.Line.Trim(); "::error::$($l.Substring(0, [Math]::Min(500, $l.Length)))" }
@@ -49,8 +52,10 @@ jobs:
             }
             exit 1
           }
-          Copy-Item FastGithub.UI\bin\Release\FastGithub.UI.exe publish\fastgithub_win-x64\
-          Copy-Item FastGithub.UI\bin\Release\FastGithub.UI.exe.config publish\fastgithub_win-x64\
+          $out = "FastGithub.UI\bin\Release\net48"
+          Copy-Item "$out\FastGithub.UI.exe" publish\fastgithub_win-x64\
+          if (Test-Path "$out\FastGithub.UI.dll.config") { Copy-Item "$out\FastGithub.UI.dll.config" publish\fastgithub_win-x64\ }
+          elseif (Test-Path "$out\FastGithub.UI.exe.config") { Copy-Item "$out\FastGithub.UI.exe.config" publish\fastgithub_win-x64\ }
 
       - name: Pack
         run: |
