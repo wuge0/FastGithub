@@ -40,7 +40,12 @@ jobs:
 
       - name: Build FastGithub.UI (net45 WPF)
         run: |
-          msbuild ./FastGithub.UI/FastGithub.UI.csproj /t:Restore,Build /p:Configuration=Release /m /nologo /v:m
+          msbuild ./FastGithub.UI/FastGithub.UI.csproj /t:Restore,Build /p:Configuration=Release /m /nologo /v:m /flp:"LogFile=ui-build.log;ErrorsOnly"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "=== UI 编译错误 ==="
+            Get-Content ui-build.log | Select-String "error " | Select-Object -First 10 | ForEach-Object { "::error::$($_.Line)" }
+            exit 1
+          }
           Copy-Item FastGithub.UI\bin\Release\FastGithub.UI.exe publish\fastgithub_win-x64\
           Copy-Item FastGithub.UI\bin\Release\FastGithub.UI.exe.config publish\fastgithub_win-x64\
 
